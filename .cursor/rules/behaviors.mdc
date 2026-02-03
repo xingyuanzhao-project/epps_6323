@@ -1242,24 +1242,36 @@ Derived from documented failure where agent modified existing notebook cell inst
   Example: Package A returns DataFrame, Package B returns dict → different handling needed
 
 ### Pattern Matching Across Libraries
-- [ ] DON'T assume two packages have same API because both implement same algorithm
-- [ ] DON'T copy code from reference that uses library A into wrapper for library B
-- [ ] DON'T treat academic method name as implying API similarity
+- DO: Verify each package's API independently, DON'T: Assume same API because same algorithm
+  Example: Both implement DiD → package_a uses `.fit()`, package_b uses `.run()` → different APIs
+- DO: Write fresh code for library B using B's actual API, DON'T: Copy code from library A reference
+  Example: Reference uses `model.summary_table` (A) → find B's equivalent, don't copy verbatim
+- DO: Look up actual API regardless of academic method name, DON'T: Assume API similarity from method name
+  Example: Both called "synthetic control" → doesn't mean same `.att` attribute exists
 
 ### Wrong Root Cause Analysis
-- [ ] DON'T blame data when library call fails â€" check if API is correct first
-- [ ] DON'T blame user's setup when `AttributeError` appears â€" check attribute name
-- [ ] DON'T suggest "restart kernel" until you've verified the file actually has correct code
+- DO: Check if API is correct first when library call fails, DON'T: Blame data
+  Example: AttributeError → check if attribute name is correct → likely wrong name, not bad data
+- DO: Check attribute name when `AttributeError` appears, DON'T: Blame user's setup
+  Example: `AttributeError: 'Result' has no attribute 'att'` → check actual attributes, not user's env
+- DO: Verify file has correct code before suggesting "restart kernel", DON'T: Suggest restart blindly
+  Example: Read file → code is wrong → fix code. Code is correct but error persists → then suggest restart.
 
 ### Drifting From Requirements
-- [ ] DON'T suggest switching libraries when the required library's code fails
-- [ ] DON'T offer "use package Y instead" when user explicitly said "use package X"
-- [ ] DON'T escape debugging by proposing alternatives
+- DO: Fix the required library's code when it fails, DON'T: Suggest switching libraries
+  Example: package_x fails → debug package_x, don't suggest "try package_y"
+- DO: Stay with package X when user explicitly said "use package X", DON'T: Offer "use package Y instead"
+  Example: User requirement = package_x → fulfill requirement, don't propose alternatives
+- DO: Debug and fix the actual issue, DON'T: Escape debugging by proposing alternatives
+  Example: AttributeError → find correct attribute → fix. Not: "you could use different library"
 
 ### Guessing APIs
-- [ ] DON'T write `result.attribute` because it "sounds right"
-- [ ] DON'T assume attribute exists because concept is involved
-- [ ] DON'T synthesize plausible attribute names from concepts
+- DO: Verify attribute exists before writing `result.attribute`, DON'T: Write because it "sounds right"
+  Example: `dir(result)` → see actual attributes → use those, not guessed names
+- DO: Check source for actual attributes, DON'T: Assume attribute exists because concept is involved
+  Example: Concept involves "groups" → doesn't mean `.group` attribute exists → verify
+- DO: Copy exact attribute names from source, DON'T: Synthesize plausible names from concepts
+  Example: Concept is "treatment effect" → could be `.att`, `.effect`, `.te`, `.result` → must verify
 
 ## Examples
 
@@ -1359,12 +1371,18 @@ Let me read package_x source to find correct attributes."
 
 ## Verification Checklist (Before Writing Library Wrapper)
 
-- [ ] What package does the reference code use?
-- [ ] What package does user want to wrap?
-- [ ] Are they the same package? If NO â†' APIs WILL differ
-- [ ] Have I read the target package's source/docs?
-- [ ] Have I verified exact attribute/method names?
-- [ ] Am I copying API calls from reference or from target docs?
+- DO: Identify what package the reference code uses, DON'T: Assume it's the target package
+  Example: Check import statements → `from package_a import` → reference uses package_a
+- DO: Confirm what package user wants to wrap, DON'T: Assume from reference
+  Example: User said "wrap package_b" → target is package_b, regardless of reference
+- DO: Recognize APIs WILL differ if packages are different, DON'T: Assume same API
+  Example: Reference uses A, user wants B → APIs will differ → must verify B's API
+- DO: Read target package's source/docs before writing, DON'T: Skip reading
+  Example: Read package_b docs → find actual methods → now ready to write
+- DO: Verify exact attribute/method names before using, DON'T: Use unverified names
+  Example: Docs show `.results` → use `.results`, not `.result` or `.output`
+- DO: Copy API calls from target docs (not reference), DON'T: Copy from reference when packages differ
+  Example: Get API from package_b docs, not from package_a reference
 
 ---
 
@@ -1381,24 +1399,38 @@ If you're writing a method call where:
 ## DO
 
 ### Method/Attribute Verification
-- [ ] Before calling ANY method: GREP or READ the class/module definition
-- [ ] LIST available methods from source code (not from memory)
-- [ ] CONFIRM exact method name and signature exist in source
-- [ ] COPY exact method name from source â€" never type from memory
-- [ ] If method name is compound and you haven't seen it in source: STOP, READ FILE FIRST
-- [ ] Ask: "Have I read this class file in this session?" If NO â†' read it now
+- DO: GREP or READ class/module definition before calling ANY method, DON'T: Call methods without verification
+  Example: `grep "def " analyzer.py` → see actual methods → use those
+- DO: LIST available methods from source code, DON'T: List from memory
+  Example: Read file → methods are: `run()`, `fit()`, `get_results()` → use these exact names
+- DO: CONFIRM exact method name and signature exist in source, DON'T: Use assumed signatures
+  Example: Source shows `def run(self, data, params)` → call with `run(data, params)`
+- DO: COPY exact method name from source, DON'T: Type from memory
+  Example: Source has `get_results` → copy `get_results`, not `getResults` from memory
+- DO: STOP and READ FILE FIRST if method name is compound and unseen, DON'T: Use unseen compound names
+  Example: About to write `_build_two_period_panel` but never saw it → STOP → read file first
+- DO: Ask "Have I read this class file in this session?", DON'T: Skip this check
+  Example: "Read analyzer.py?" → No → read it now before using any methods
 
 ## DON'T
 
 ### Method/Attribute Fabrication
-- [ ] DON'T write method calls based on "pattern matching"
-- [ ] DON'T assume method exists because the name "sounds reasonable" or "makes sense"
-- [ ] DON'T rely on partial knowledge of a concept to synthesize plausible method names
-- [ ] DON'T prioritize speed over verification â€" reading the class takes seconds, debugging fabrication takes minutes
-- [ ] DON'T let completion bias ("I want to finish this") override evidence checking
-- [ ] DON'T fall into the plausibility trap â€" compound names that "fit the pattern" are fabrication signals
-- [ ] DON'T type method names from memory â€" copy from source
-- [ ] DON'T skip verification because "I won't see the runtime error anyway" â€" user will
+- DO: Verify method in source before writing call, DON'T: Write based on "pattern matching"
+  Example: Other methods use `_build_X` → doesn't mean `_build_Y` exists → verify
+- DO: Find method in source before using, DON'T: Assume method exists because name "sounds reasonable"
+  Example: `_build_two_period_panel` sounds right → but grep shows no match → fabricated
+- DO: Look up actual method names, DON'T: Synthesize plausible names from partial concept knowledge
+  Example: Know it builds panels → doesn't mean `_build_panel()` exists → must verify
+- DO: Spend seconds reading class for verification, DON'T: Skip verification to save time
+  Example: Reading class: 30 seconds. Debugging fabrication: 30 minutes.
+- DO: Complete evidence checking before finishing, DON'T: Let "I want to finish" override checking
+  Example: Almost done → still verify last method call → then finish
+- DO: Treat compound names as fabrication signals, DON'T: Fall into plausibility trap
+  Example: `_build_X_Y_Z` "fits pattern" → pattern fit = fabrication signal → verify
+- DO: Copy method names from source, DON'T: Type from memory
+  Example: Open source → copy `get_results` → paste into code
+- DO: Verify because user will see errors, DON'T: Skip because "I won't see runtime error"
+  Example: You won't see AttributeError → user will → verify for user's sake
 
 ## Example: Method Fabrication
 
