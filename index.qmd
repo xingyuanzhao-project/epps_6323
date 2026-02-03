@@ -1,0 +1,7 @@
+---
+title: "EPPS 6323 Knowledge Mining"
+---
+
+## Welcome
+
+This is my course website for EPPS 6323 Knowledge Mining, Spring 2026 at UT Dallas.

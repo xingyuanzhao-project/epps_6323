@@ -1,0 +1,7 @@
+---
+title: "About"
+---
+
+## About This Course
+
+This course is about knowledge mining.
