@@ -2,6 +2,6 @@
 title: "About"
 ---
 
-## About This Course
+## About This Project
 
-This course is about knowledge mining.
+This project is about knowledge mining.
