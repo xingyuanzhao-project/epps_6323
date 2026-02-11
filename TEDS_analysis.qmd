@@ -1,0 +1,295 @@
+---
+title: "EPPS 6323: TEDS 2016 Exploratory Data Analysis"
+author: "My name"
+format: html
+editor: visual
+execute:
+  warning: false
+  message: false
+---
+
+# Data Loading
+
+```{r}
+project_lib <- file.path(getwd(), ".r_libs")
+if (!dir.exists(project_lib)) {
+  dir.create(project_lib, recursive = TRUE)
+}
+.libPaths(c(project_lib, .libPaths()))
+
+if (!requireNamespace("haven", quietly = TRUE)) {
+  install.packages("haven", repos = "https://cloud.r-project.org", lib = project_lib)
+}
+library(haven)
+
+dataset_url <- "https://github.com/datageneration/home/blob/master/DataProgramming/data/TEDS_2016.dta?raw=true"
+TEDS_2016 <- haven::read_dta(dataset_url)
+
+normalize_name <- function(x) {
+  gsub("[^a-z0-9]", "", tolower(x))
+}
+
+match_variable <- function(target, columns) {
+  idx <- match(normalize_name(target), normalize_name(columns))
+  if (is.na(idx)) {
+    return(NA_character_)
+  }
+  columns[idx]
+}
+
+requested_variables <- c("Tondu", "female", "DPP", "age", "income", "edu", "Taiwanese", "Econ_worse", "votetsai")
+mapped_variables <- sapply(requested_variables, match_variable, columns = names(TEDS_2016))
+
+cat("Rows:", nrow(TEDS_2016), "\n")
+cat("Columns:", ncol(TEDS_2016), "\n")
+
+data.frame(
+  requested_name = requested_variables,
+  matched_name = unname(mapped_variables),
+  stringsAsFactors = FALSE
+)
+```
+
+# Data Problems Encountered (Requirement 4)
+
+Main problems encountered:
+- Labelled columns (`haven_labelled`) require conversion before numeric analysis.
+- Missing values exist across many columns and must be quantified.
+- The requested variable names may not exactly match column names, so mapping is needed.
+
+```{r}
+column_primary_class <- sapply(TEDS_2016, function(x) class(x)[1])
+class_counts <- sort(table(column_primary_class), decreasing = TRUE)
+
+missing_rate <- colMeans(is.na(TEDS_2016))
+top_missing <- head(sort(missing_rate, decreasing = TRUE), 12)
+
+data.frame(
+  issue = c("Labelled columns", "Columns with NA values"),
+  evidence = c(
+    paste(sum(column_primary_class == "haven_labelled"), "columns are haven_labelled"),
+    paste(sum(missing_rate > 0), "columns contain NA")
+  ),
+  stringsAsFactors = FALSE
+)
+
+class_counts
+
+data.frame(
+  variable = names(top_missing),
+  missing_rate = round(as.numeric(top_missing), 4),
+  stringsAsFactors = FALSE
+)
+```
+
+# Missing Values Handling (Requirement 5)
+
+Handling approach used here:
+1. Keep original dataset unchanged.
+2. Build analysis subsets for target variables only.
+3. Use complete-case rows for statistical tests.
+4. Keep NA visible in frequency tables.
+
+```{r}
+available_targets <- unique(unname(mapped_variables[!is.na(mapped_variables)]))
+analysis_subset <- TEDS_2016[, available_targets, drop = FALSE]
+complete_case_subset <- analysis_subset[complete.cases(analysis_subset), , drop = FALSE]
+
+data.frame(
+  metric = c(
+    "Rows in original dataset",
+    "Rows in analysis subset",
+    "Rows after complete-case filtering"
+  ),
+  value = c(
+    nrow(TEDS_2016),
+    nrow(analysis_subset),
+    nrow(complete_case_subset)
+  ),
+  stringsAsFactors = FALSE
+)
+```
+
+# Tondu Relationship Exploration (Requirement 6)
+
+```{r}
+to_numeric <- function(x) {
+  suppressWarnings(as.numeric(as.character(x)))
+}
+
+to_factor <- function(x) {
+  if (inherits(x, "haven_labelled")) {
+    return(haven::as_factor(x, levels = "labels"))
+  }
+  as.factor(x)
+}
+
+tondu_var <- mapped_variables["Tondu"]
+
+if (!is.na(tondu_var)) {
+  tondu_numeric <- suppressWarnings(as.numeric(TEDS_2016[[tondu_var]]))
+  tondu_labels <- c(
+    "Unification now",
+    "Status quo, unif. in future",
+    "Status quo, decide later",
+    "Status quo forever",
+    "Status quo, indep. in future",
+    "Independence now",
+    "No response"
+  )
+  TEDS_2016$Tondu_labeled <- factor(
+    tondu_numeric,
+    levels = seq_along(tondu_labels),
+    labels = tondu_labels,
+    ordered = TRUE
+  )
+}
+
+predictor_targets <- c("female", "DPP", "age", "income", "edu", "Taiwanese", "Econ_worse")
+predictor_map <- mapped_variables[predictor_targets]
+
+relationship_results <- data.frame(
+  requested_predictor = character(0),
+  matched_predictor = character(0),
+  method = character(0),
+  statistic = numeric(0),
+  p_value = numeric(0),
+  stringsAsFactors = FALSE
+)
+
+if (!is.na(tondu_var)) {
+  par(mfrow = c(2, 2))
+
+  for (predictor_name in names(predictor_map)) {
+    predictor_actual <- predictor_map[[predictor_name]]
+    if (is.na(predictor_actual)) {
+      next
+    }
+
+    predictor <- TEDS_2016[[predictor_actual]]
+    keep <- !is.na(TEDS_2016$Tondu_labeled) & !is.na(predictor)
+    if (!any(keep)) {
+      next
+    }
+
+    tondu_keep <- TEDS_2016$Tondu_labeled[keep]
+    predictor_keep <- predictor[keep]
+
+    is_numeric_predictor <- is.numeric(predictor_keep) && length(unique(predictor_keep)) > 10
+
+    if (is_numeric_predictor) {
+      test_out <- suppressWarnings(kruskal.test(predictor_keep ~ tondu_keep))
+      relationship_results <- rbind(
+        relationship_results,
+        data.frame(
+          requested_predictor = predictor_name,
+          matched_predictor = predictor_actual,
+          method = "Kruskal-Wallis",
+          statistic = unname(test_out$statistic),
+          p_value = test_out$p.value,
+          stringsAsFactors = FALSE
+        )
+      )
+      boxplot(
+        predictor_keep ~ tondu_keep,
+        main = paste(predictor_actual, "by Tondu"),
+        xlab = "Tondu",
+        ylab = predictor_actual,
+        las = 2
+      )
+    } else {
+      predictor_factor <- to_factor(predictor_keep)
+      contingency <- table(tondu_keep, predictor_factor)
+      if (nrow(contingency) > 1 && ncol(contingency) > 1) {
+        test_out <- suppressWarnings(chisq.test(contingency))
+        test_stat <- unname(test_out$statistic)
+        test_p <- test_out$p.value
+      } else {
+        test_stat <- NA_real_
+        test_p <- NA_real_
+      }
+
+      relationship_results <- rbind(
+        relationship_results,
+        data.frame(
+          requested_predictor = predictor_name,
+          matched_predictor = predictor_actual,
+          method = "Chi-square",
+          statistic = test_stat,
+          p_value = test_p,
+          stringsAsFactors = FALSE
+        )
+      )
+
+      prop_tbl <- prop.table(contingency, margin = 1)
+      barplot(
+        t(prop_tbl),
+        beside = FALSE,
+        legend.text = FALSE,
+        main = paste(predictor_actual, "within Tondu"),
+        xlab = "Tondu",
+        ylab = "Proportion"
+      )
+    }
+  }
+
+  par(mfrow = c(1, 1))
+}
+
+relationship_results
+```
+
+# votetsai Variable Analysis (Requirement 7)
+
+```{r}
+votetsai_var <- mapped_variables["votetsai"]
+
+if (!is.na(votetsai_var)) {
+  votetsai_factor <- to_factor(TEDS_2016[[votetsai_var]])
+  votetsai_freq <- table(votetsai_factor, useNA = "ifany")
+
+  data.frame(
+    votetsai_value = names(votetsai_freq),
+    count = as.numeric(votetsai_freq),
+    stringsAsFactors = FALSE
+  )
+
+  barplot(
+    votetsai_freq,
+    las = 2,
+    col = "steelblue",
+    main = "Distribution of votetsai",
+    ylab = "Count"
+  )
+
+  if (!is.na(tondu_var)) {
+    tondu_votetsai <- table(TEDS_2016$Tondu_labeled, votetsai_factor, useNA = "no")
+    tondu_votetsai
+    if (nrow(tondu_votetsai) > 1 && ncol(tondu_votetsai) > 1) {
+      suppressWarnings(chisq.test(tondu_votetsai))
+    }
+  }
+}
+```
+
+# Tondu Frequency Table and Barchart (Requirement 8)
+
+```{r}
+if (!is.na(tondu_var)) {
+  tondu_frequency <- table(TEDS_2016$Tondu_labeled, useNA = "ifany")
+
+  data.frame(
+    tondu_label = names(tondu_frequency),
+    count = as.numeric(tondu_frequency),
+    stringsAsFactors = FALSE
+  )
+
+  barplot(
+    tondu_frequency,
+    las = 2,
+    col = "darkseagreen3",
+    main = "Tondu Frequency Distribution",
+    ylab = "Count"
+  )
+}
+```

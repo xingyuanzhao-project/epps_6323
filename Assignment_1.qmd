@@ -1,0 +1,27 @@
+---
+title: "Assignment 1: R and Quarto Review"
+author: "My name"
+format: html
+editor: visual
+---
+
+## Overview
+
+This assignment contains:
+- Lab 01 (R programming basics I)
+- Lab 02 (R programming basics II)
+- TEDS 2016 exploratory data analysis
+
+## Components
+
+### [Lab 01: R Programming Basics I](Lab01.html)
+
+Outputs include R basics, matrix operations, descriptive statistics, and base graphics.
+
+### [Lab 02: R Programming Basics II](Lab02.html)
+
+Outputs include indexing, data loading, exploratory plots, and regression analysis.
+
+### [TEDS 2016 Exploratory Data Analysis](TEDS_analysis.html)
+
+Outputs include data loading, missing-value handling, variable relationships, and Tondu frequency visualizations.

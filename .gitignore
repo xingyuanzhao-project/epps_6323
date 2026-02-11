@@ -181,3 +181,6 @@ cython_debug/
 .cursorindexingignore
 /.quarto/
 /_site/
+
+# Ignore local materials folder (absolute path example, but .gitignore uses relative paths)
+materials/

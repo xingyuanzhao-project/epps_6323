@@ -7,6 +7,8 @@ website:
     left:
       - href: index.qmd
         text: Home
+      - href: Assignment_1.qmd
+        text: Assignment 1
       - about.qmd
 
 format:
