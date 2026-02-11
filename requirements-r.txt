@@ -1,7 +1,6 @@
 # R packages required to render this Quarto project in CI
 knitr
 rmarkdown
-car
 haven
 MASS
 ISLR

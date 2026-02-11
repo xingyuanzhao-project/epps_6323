@@ -78,18 +78,12 @@ summary(mpg)
 ## Linear Regression
 
 ```{r}
-project_lib <- file.path(getwd(), ".r_libs")
-if (!dir.exists(project_lib)) {
-  dir.create(project_lib, recursive = TRUE)
+required_pkgs <- c("MASS", "ISLR")
+missing_pkgs <- required_pkgs[!vapply(required_pkgs, requireNamespace, logical(1), quietly = TRUE)]
+if (length(missing_pkgs) > 0) {
+  stop("Missing required packages: ", paste(missing_pkgs, collapse = ", "))
 }
-.libPaths(c(project_lib, .libPaths()))
-
-ptbu=c("MASS","ISLR","car")
-missing_ptbu <- ptbu[!sapply(ptbu, requireNamespace, quietly = TRUE)]
-if (length(missing_ptbu) > 0) {
-  install.packages(missing_ptbu, repos='https://cloud.r-project.org', lib = project_lib)
-}
-invisible(lapply(ptbu, library, character.only = TRUE))
+invisible(lapply(required_pkgs, library, character.only = TRUE))
 
 # Simple Linear Regression
 
@@ -132,8 +126,22 @@ lm.fit=lm(medv~lstat+age,data=Boston)
 summary(lm.fit)
 lm.fit=lm(medv~.,data=Boston)
 summary(lm.fit)
-library(car)
-vif(lm.fit)
+# Compute per-predictor VIF directly from model matrix.
+compute_vif <- function(model) {
+  mm <- model.matrix(model)
+  if ("(Intercept)" %in% colnames(mm)) {
+    mm <- mm[, colnames(mm) != "(Intercept)", drop = FALSE]
+  }
+  if (ncol(mm) < 2) {
+    return(setNames(rep(1, ncol(mm)), colnames(mm)))
+  }
+  vifs <- sapply(seq_len(ncol(mm)), function(i) {
+    r2 <- summary(lm(mm[, i] ~ mm[, -i]))$r.squared
+    1 / (1 - r2)
+  })
+  setNames(vifs, colnames(mm))
+}
+compute_vif(lm.fit)
 lm.fit1=lm(medv~.-age,data=Boston)
 summary(lm.fit1)
 lm.fit1=update(lm.fit, ~.-age)

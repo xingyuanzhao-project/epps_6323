@@ -28,7 +28,8 @@ jobs:
 
       - name: Install required R packages
         run: |
-          Rscript - <<'RS'
+          set -o pipefail
+          Rscript - <<'RS' 2>&1 | tee r-packages-install.log
           req_file <- "requirements-r.txt"
           if (!file.exists(req_file)) {
             stop("Missing requirements file: ", req_file)
@@ -41,6 +42,11 @@ jobs:
           missing <- pkgs[!vapply(pkgs, requireNamespace, logical(1), quietly = TRUE)]
           if (length(missing) > 0) {
             install.packages(missing, repos = "https://cloud.r-project.org")
+          }
+
+          unresolved <- pkgs[!vapply(pkgs, requireNamespace, logical(1), quietly = TRUE)]
+          if (length(unresolved) > 0) {
+            stop("Packages failed to install: ", paste(unresolved, collapse = ", "))
           }
 
           versions <- vapply(pkgs, function(pkg) as.character(packageVersion(pkg)), character(1))
@@ -62,6 +68,7 @@ jobs:
           name: quarto-render-logs
           if-no-files-found: warn
           path: |
+            r-packages-install.log
             quarto-render.log
             render-console.log
 

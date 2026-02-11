@@ -11,14 +11,8 @@ execute:
 # Data Loading
 
 ```{r}
-project_lib <- file.path(getwd(), ".r_libs")
-if (!dir.exists(project_lib)) {
-  dir.create(project_lib, recursive = TRUE)
-}
-.libPaths(c(project_lib, .libPaths()))
-
 if (!requireNamespace("haven", quietly = TRUE)) {
-  install.packages("haven", repos = "https://cloud.r-project.org", lib = project_lib)
+  stop("Missing required package: haven")
 }
 library(haven)
 
