@@ -26,14 +26,44 @@ jobs:
         with:
           use-public-rspm: true
 
-      - name: Install R packages
-        run: Rscript -e "install.packages(c('car','haven'), repos='https://cloud.r-project.org')"
+      - name: Install required R packages
+        run: |
+          Rscript - <<'RS'
+          req_file <- "requirements-r.txt"
+          if (!file.exists(req_file)) {
+            stop("Missing requirements file: ", req_file)
+          }
+
+          pkgs <- readLines(req_file, warn = FALSE)
+          pkgs <- trimws(pkgs)
+          pkgs <- pkgs[nzchar(pkgs) & !grepl("^#", pkgs)]
+
+          missing <- pkgs[!vapply(pkgs, requireNamespace, logical(1), quietly = TRUE)]
+          if (length(missing) > 0) {
+            install.packages(missing, repos = "https://cloud.r-project.org")
+          }
+
+          versions <- vapply(pkgs, function(pkg) as.character(packageVersion(pkg)), character(1))
+          print(versions)
+          RS
 
       - name: Setup Quarto
         uses: quarto-dev/quarto-actions/setup@v2
 
       - name: Render Quarto Project
-        run: quarto render
+        run: |
+          set -o pipefail
+          quarto render --log quarto-render.log --log-level info --log-format plain 2>&1 | tee render-console.log
+
+      - name: Upload render logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: quarto-render-logs
+          if-no-files-found: warn
+          path: |
+            quarto-render.log
+            render-console.log
 
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
