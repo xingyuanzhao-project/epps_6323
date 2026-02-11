@@ -1,8 +1,6 @@
 ---
 title: "EPPS 6323: Lab01 R programming basics I"
-author: "My name"
 format: html
-editor: visual
 ---
 
 # R Programming Basic Commands

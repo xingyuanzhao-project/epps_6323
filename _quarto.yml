@@ -9,6 +9,8 @@ website:
         text: Home
       - href: Assignment_1.qmd
         text: Assignment 1
+      - href: Assignment_2.qmd
+        text: Assignment 2
       - about.qmd
 
 format:

@@ -1,16 +1,11 @@
 ---
 title: "Assignment 1: R and Quarto Review"
-author: "My name"
 format: html
-editor: visual
 ---
 
 ## Overview
 
-This assignment contains:
-- Lab 01 (R programming basics I)
-- Lab 02 (R programming basics II)
-- TEDS 2016 exploratory data analysis
+This assignment contains: - Lab 01 (R programming basics I) - Lab 02 (R programming basics II) - TEDS 2016 exploratory data analysis
 
 ## Components
 
